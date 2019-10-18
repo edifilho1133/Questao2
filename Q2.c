@@ -9,87 +9,95 @@ int N, T, A; //numero de usuarios,quantidade de threads usadas,quantidade de arq
 int ler[100];  //aux para ler os arquivos
 int sel = 0; //aux para uso das threads
 double Vtotal = 0;  //valor total a ser exibido no final
-pthread_mutex_t arqler = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t arqop = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t arqler = PTHREAD_MUTEX_INITIALIZER;  //mutex
+pthread_mutex_t arqop = PTHREAD_MUTEX_INITIALIZER;   //mutex
 
-
-/*Estrutura com os dados de cada usuario*/
+//ESTRUTURA USADA PARA ARMAZENAR OS DADOS DE CADA USUARIO
 typedef struct user{
-    char nome[50];
-    char id[50];
-    int ultimo;
-    double pont;
+    char nome[50];   //nome
+    char id[50];     //id
+    int ultimo;      //ultimo acesso
+    double pont;     //pontuacao
 }user;
 
 
-/*Transformando int em char para operacoes*/
+//FUNCAO QUE AJUDA A TRANSFORMAR INTEIRO EM CARACTER
 char* transintchar(int x, int y){
-	int i = 30;
+	int a = 30;
 	static char aux[32] = {0};
-	
-	for(; x && i ; --i, x /= y)
-		aux[i] = "0123456789abcdef" [x % y];
-	return &aux[i+1];
+	for(; x && a ; --a, x /= y)
+		aux[a] = "0123456789abcdef" [x % y];
+	return &aux[a+1];
 }
 
-void *princ(){   /*Funcao principal*/
+void *princ(){   //Funcao principal
     
     
-    double auxArq = 0;    /*variavel para a quantidade de arquivos*/
-        int i;            /*auxiliar para loop*/
-        int espera = -1;  /*auxiliar para existencia de arquivos*/
+    double auxArq = 0;    //variavel para a quantidade de arquivos
+        int a;            //auxiliar para loop
+        int espera = -1;  //auxiliar para existencia de arquivos
 
     while(1){
         
-        /*Procurando o arquivo que deve ler*/
-        for(i=0; i<A; i++){
-            pthread_mutex_lock(&arqler);         /*trava mutex*/
-            if(ler[i] == 0){                     /*selecionando o arquivo*/
-                ler[i] = 1;
-                espera = i;
-                pthread_mutex_unlock(&arqler);    /*destrava mutex*/
+        //LOOP PARA LER OS ARQUIVOS EM ORDEM SEM O USO DE DADOS POR THREADS SIMULTANEAMENTE
+        for(a=0; a<A; a++){                      //loop
+            pthread_mutex_lock(&arqler);         //trava mutex
+            if(ler[a] == 0){                     //selecionando o arquivo
+                ler[a] = 1;
+                espera = a;
+                pthread_mutex_unlock(&arqler);    //destrava mutex
                 break;
             }
-            pthread_mutex_unlock(&arqler);       /*destrava mutex*/
+            pthread_mutex_unlock(&arqler);       //destrava mutex
         }
 
-        /*Verificando se ainda existe algum arquivo*/
-        if(espera == -1){                
-            pthread_mutex_lock(&arqop);            /*trava mutex*/
-            Vtotal += auxArq;                     /*Adicionando na soma total*/
-            pthread_mutex_unlock(&arqop);         /*destrava mutex*/
+        //VERIFICANDO SE TODOS OS ARQUIVOS JA FORAM LIDOS 
+        if(espera == -1){                          //condicao             
+            pthread_mutex_lock(&arqop);            //trava mutex
+            Vtotal += auxArq;                     //Adicionando na soma total
+            pthread_mutex_unlock(&arqop);         //destrava mutex
             pthread_exit(NULL);         
         }
         espera++;
         FILE *arquivox, *arquivoy;
-        //Trecho de conversão para ler o arquivo certo
+        
+
         int c;
-        char name[100] = "banco";
-        char aux[100];
+        
         char *z;
+        char name[100] = "banco";
+        char aux[100];     
         z = transintchar(espera, 10);
         strcat(name, z);
         strcpy(aux, name);
         strcat(name, ".txt");
-        arquivox = fopen(name, "r+");//Abrimos o arquivo de leitura
+        
+        //ABERTURA DOS ARQUIVOS
+        arquivox = fopen(name, "r+");
         strcat(aux, "reserva.txt");
-        arquivoy = fopen(aux, "w");//Abrimos o arquivo de backup
-        user lido; // Variavel que guarda usuário lido
+        arquivoy = fopen(aux, "w");
+        
+        
+        user lido;             //Armazenando os usuarios na estrutura
 
-        while(fscanf(arquivox, " %s %s %i %lf", lido.nome, lido.id, &lido.ultimo, &lido.pont) != EOF){//Enquanto estiver algo para ler, lemos
-            if(sel == 0){//Se o seletor for 0, iremos apenas ler os valores e somar à variável local
+        
+        //FUNCAO PARA AVALIAR SE USUARIO DEVE SER EXCLUIDO DO ARQUIVO OU NAO
+        while(fscanf(arquivox, " %s %s %i %lf", lido.nome, lido.id, &lido.ultimo, &lido.pont) != EOF){     //leitura ate o final
+            if(sel == 0){                      //Determina se ja foi lido antes
                 auxArq += lido.ultimo/(lido.pont * lido.pont);
             }
-            else{//Se for 1, verificamos esse usuário
-                if((double)lido.ultimo/(lido.pont * lido.pont) > 2*Vtotal){// Se a conta dele for maior, printamos e não colocamos no arquivo
+            else{
+                if((double)lido.ultimo/(lido.pont * lido.pont) > 2*Vtotal){     //Exibe o nome do usuario se nao atender as condicoes para continuar no arquivo sem salvar seu nome
                     printf("%s\n", lido.nome);
                 }
-                else{//Escrevemos o usuário no arquivo de backup
-                    fprintf(arquivoy,"%s %s %i %.2lf\n", lido.nome, lido.id, lido.ultimo, lido.pont);
+                else{
+                    fprintf(arquivoy,"%s %s %i %.2lf\n", lido.nome, lido.id, lido.ultimo, lido.pont);    //salva as informacoes do usuario se ele atender as condicoes para continuar
                 }
             }
         }
-        fclose(arquivox);//Fechamos o arquivo
+        
+        //FECHA OS ARQUIVOS ABERTOS
+        fclose(arquivox);
         fclose(arquivoy);
     }
 }
@@ -98,82 +106,77 @@ void *princ(){   /*Funcao principal*/
 /////////////////////////////////////////////////////////////////////////////////////// MAIN /////////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[]){
-    int a;
-    
-
+    int a, t;                                                      //variavel auxiliar
+    int rc;                                                     //Variaveis auxiliares para criar as threads                                                  
+    int*taskids[T];                                                 // Variavel de uso pra identificao de Threads
    
-    printf("Digite a qauntidade de arquivos:");
+    printf("Digite a quantidade de arquivos:");
     scanf("%i", &A);
-    printf("Digite a qauntidade de threads:");
+    printf("Digite a quantidade de threads:");
     scanf("%i", &T);
-    printf("Digite a qauntidade de usuarios:");
+    printf("Digite a quantidade de usuarios:");
     scanf("%i", &N); 
 
     
-    pthread_t threads[T];                                           /*Uso de thread*/
-    pthread_attr_t var;                                            /*Uso de thread*/
-    pthread_attr_init(&var);                                       /*Uso de thread*/
-    pthread_attr_setdetachstate(&var, PTHREAD_CREATE_JOINABLE);    /*Uso de thread*/
-
-    int*taskids[T];                                                /*Variaveis auxiliares para criar as threads*/
-    int rc;                                                        /*Variaveis auxiliares para criar as threads*/
-
-
-
-for(a=1; a<T+1; a++){                                    /*Criando as threads*/   
-   taskids[a] = (int *) malloc(sizeof(int));                    
-   *taskids[a] = a;
-   printf("No main: criando thread %d\n", a);            /*Informa criacao da thread*/   
-   rc = pthread_create(&threads[a], &var, princ, NULL);  /* Cria a Thread, e passo seu ID como parametro pra rotina que ela vai executar*/     
-    if (rc){         
-      printf("ERRO; codigo de retorno %d\n", rc);        /*Informa erro na criacao da thread*/      
-      exit(-1);      
-    }   
-  
-  }   
-
+    pthread_t threads[T];                                           //Uso de thread
     
+    
+    pthread_attr_t atributtes;                                            //Uso de thread
+    pthread_attr_init(&atributtes);                                       //Uso de thread
+    pthread_attr_setdetachstate(&atributtes, PTHREAD_CREATE_JOINABLE);    //Uso de thread
+    
+    //PROCESSO DE CRIACAO DAS THREADS 
+    for(t=0; t<T; t++){        
+    taskids[t] = (double *) malloc(sizeof(double));      //Alocando memoria                 
+    *taskids[t] = t;
+    printf("No main: criando thread %d\n", t);      
+    rc = pthread_create(&threads[t], &atributtes, princ, NULL);  // Crio a Thread, e passo seu ID como parametro pra rotina que ela vai executar.     
+     if (rc){         
+      printf("ERRO; codigo de retorno %d\n", rc);         
+      exit(-1);      
+    }
+    }   
+    
+    
+    //FINALIZA AS THREADS
     for(a=0; a<T; a++){
-        pthread_join(threads[a], NULL);               /*Threads sao finalizadas*/
+        pthread_join(threads[a], NULL);               //Threads sao finalizadas
     }
     
+    
+    //ZERA VARIAVEIS
     for(a=0; a<T; a++){                               
-        ler[a] = 0;                                   /*Variavel de leitura zerada*/
+        ler[a] = 0;                                   //Variavel de leitura zerada
     }
     
     sel = 1;
-
-    Vtotal /= N;   /*Calculo do valor final*/
     
- for(a=1; a<T+1; a++){                                    /*Recriando as threads para remocao*/   
-   taskids[a] = (int *) malloc(sizeof(int));                    
-   *taskids[a] = a;
-   printf("No main: criando thread %d\n", a);            /*Informa criacao da thread*/   
-   rc = pthread_create(&threads[a], &var, princ, NULL);  /* Cria a Thread, e passo seu ID como parametro pra rotina que ela vai executar*/     
+    Vtotal /= N;                                       //Valor final que vai ser exibido no finnal
+ 
+   //RECRIA AS THREADS PARA REFAZER OS ARQUIVOS
+   for(t=0; t<T; t++){ 
+        
+   taskids[t] = (double *) malloc(sizeof(double));      //Alocando memoria                 
+   *taskids[t] = t;
+   printf("No main: criando thread %d\n", t);      
+   rc = pthread_create(&threads[t], &atributtes, princ, NULL);  // Crio a Thread, e passo seu ID como parametro pra rotina que ela vai executar.     
     if (rc){         
-      printf("ERRO; codigo de retorno %d\n", rc);        /*Informa erro na criacao da thread*/      
+      printf("ERRO; codigo de retorno %d\n", rc);         
       exit(-1);      
-    }   
-  
-  } 
+    }
+   }   
+
+    //FINALIZA NOVAMENTE AS THREADS
     for(a=0; a<T; a++){
-        pthread_join(threads[a], NULL);                 /*Threads sao finalizadas*/
+        pthread_join(threads[a], NULL);                 //Threads sao finalizadas
     }
-    for(a=1; a<=A; a++){                                /*Alterando arquivos*/
-        char name[100] = "banco";
-        char aux[100];
-        char *w;
+
+
+
+    //EH PRECISO CRIAR MAIS UMA FUNCAO PARA REFAZER OS ARQUIVOS SEM OS USUARIOS QUE DEVERAO SER EXCLUIDOS//
         
-        FILE *arquivox, *arquivoy;                      /*Iniciando arquivos*/
-        
-        w = transintchar(a, 10);
-        strcat(name, w);
-        strcpy(aux, name);
-        strcat(name, ".txt");
-        strcat(aux, "reserva.txt");
-        rename(aux, name);
-    }
-    printf("%.2lf\n", Vtotal);
+    
     pthread_exit(NULL);
+
    
 }
