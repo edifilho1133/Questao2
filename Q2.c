@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 
-/*Declarando variaveis*/
+//DECLARA AS VARIAVEIS UTILIZADAS
 int N, T, A; //numero de usuarios,quantidade de threads usadas,quantidade de arquivos
 int ler[100];  //aux para ler os arquivos
 int sel = 0; //aux para uso das threads
